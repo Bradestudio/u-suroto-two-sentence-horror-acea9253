@@ -29,9 +29,40 @@ OUTPUT_PATH = os.path.join(OUTPUT_DIR, "entry.txt")
 MAX_CHARS = 400
 
 
+# Common abbreviations whose period is not a sentence end.
+ABBREVIATIONS = {
+    "mr", "mrs", "ms", "dr", "st", "jr", "sr", "vs", "etc",
+    "e.g", "i.e", "no", "fig", "approx", "dept",
+}
+
+
 def count_sentences(text):
-    """Count sentences by terminal punctuation followed by space or end."""
-    return len(re.findall(r"[.!?](?:\s|$)", text))
+    """Count sentences by terminal punctuation followed by space or end.
+
+    An ellipsis run (adjacent or space-separated dots) counts as one
+    terminator, and a period ending a known abbreviation ("Mr.", "Dr.",
+    "No.", "e.g.") or a single capital initial ("U.S.", "J. R. R.") is
+    not a sentence end.
+    """
+    # Collapse ellipsis runs to a single period so "..." counts once.
+    text = re.sub(r"\.(?:\s*\.)+", ".", text)
+    count = 0
+    for m in re.finditer(r"[.!?](?:\s|$)", text):
+        if m.group(0)[0] != ".":
+            count += 1
+            continue
+        i = m.start()
+        word = re.search(r"[A-Za-z]+(?:\.[A-Za-z]+)*$", text[:i])
+        if word:
+            w = word.group(0)
+            # Known abbreviation ("Mr.", "e.g."), a single capital initial
+            # ("J."), or a run of capital initials ("U.S.", "J. R. R.").
+            if w.lower() in ABBREVIATIONS or re.fullmatch(
+                r"(?:[A-Z]\.)*[A-Z]", w
+            ):
+                continue
+        count += 1
+    return count
 
 
 def verify(text):
